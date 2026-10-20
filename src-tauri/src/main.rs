@@ -8,7 +8,11 @@ use std::sync::{
 };
 use std::{thread, time::Duration};
 use sysinfo::{Disks, Networks, System};
-use tauri::{Emitter, Manager, PhysicalPosition};
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::TrayIconBuilder,
+    Emitter, Manager, PhysicalPosition,
+};
 use windows::Devices::Enumeration::DeviceInformation;
 use windows::Devices::Geolocation::Geolocator;
 use windows::Media::Control::{
@@ -157,9 +161,9 @@ fn hover_loop(app: tauri::AppHandle) {
         let sf = w.scale_factor().unwrap_or(1.0);
         let (x, y) = ((c.x - p.x as f64) / sf, (c.y - p.y as f64) / sf);
         let (rw, rh) = match app.state::<Ui>().0.load(Ordering::Relaxed) {
-            0 => (200.0, 40.0),
-            1 => (310.0, 54.0),
-            _ => (524.0, 206.0),
+            0 => (176.0, 32.0),
+            1 => (300.0, 48.0),
+            _ => (520.0, 200.0),
         };
         let half = sz.width as f64 / sf / 2.0;
         let inside = x >= half - rw / 2.0 && x <= half + rw / 2.0 && y >= 0.0 && y <= rh;
@@ -396,6 +400,28 @@ fn main() {
                 let x = m.position().x + (m.size().width as i32 - w.outer_size()?.width as i32) / 2;
                 w.set_position(PhysicalPosition::new(x, m.position().y))?;
             }
+            let show = MenuItem::with_id(app, "show", "Open Island", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Quit Island", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &quit])?;
+            let mut tray = TrayIconBuilder::new()
+                .tooltip("Island")
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "quit" => app.exit(0),
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_ignore_cursor_events(false);
+                            let _ = window.set_focus();
+                            let _ = window.emit("open-island", ());
+                        }
+                    }
+                    _ => {}
+                });
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            tray.build(app)?;
             w.set_ignore_cursor_events(true)?;
             let h = app.handle().clone();
             thread::spawn(move || hover_loop(h));

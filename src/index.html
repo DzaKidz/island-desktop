@@ -34,7 +34,7 @@
      <div class="row"><div><div class="big" id="left">25:00</div><small style="color:#9aa0a8">Focus session</small></div>
       <div style="margin-left:auto;display:flex;gap:6px"><button class="btn" id="reset">Reset</button><button class="btn go" id="start">Start</button></div></div>
      <div class="pbar"><i id="pfill"></i></div>
-     <div class="dur" id="dur"><button class="pill" data-m="15">15</button><button class="pill" data-m="25">25</button><button class="pill" data-m="45">45</button><button class="pill" data-m="60">60</button><span class="step"><button class="ib sm" id="dm" aria-label="Shorter">−</button><input id="dmin" type="number" min="1" max="180" value="25" aria-label="Minutes"><button class="ib sm" id="dp" aria-label="Longer">+</button><small>min</small></span></div>
+     <div class="dur" id="focusDurations"><button class="pill" data-m="15">15</button><button class="pill" data-m="25">25</button><button class="pill" data-m="45">45</button><button class="pill" data-m="60">60</button><span class="step"><button class="ib sm" id="dm" aria-label="Shorter">−</button><input id="dmin" type="number" min="1" max="180" value="25" aria-label="Minutes"><button class="ib sm" id="dp" aria-label="Longer">+</button><small>min</small></span></div>
     </div><div class="col"><div class="todo"><div class="add"><input id="todoIn" type="text" placeholder="Add a task" maxlength="80" aria-label="New task"><button class="btn go" id="todoAdd">Add</button></div><div class="tl" id="tl"></div></div></div></div></div>
     <div class="pane" data-t="prayer" hidden><div class="pray" id="pray"></div><div class="pnext" id="pnext"></div></div>
     <div class="pane" data-t="weather" hidden><div id="wxPane"></div></div>
@@ -53,7 +53,7 @@
 
 <script>
 const $ = (s) => document.querySelector(s),
-  $ = (s) => [...document.querySelectorAll(s)];
+  $$ = (s) => [...document.querySelectorAll(s)];
 const notch = $('#notch'),
   stage = $('#stage');
 const S = {
@@ -102,13 +102,14 @@ function close(ms = 450) {
 }
 function peek(icon, title, sub, meter, ms = 3200) {
   if (notch.dataset.state === 'open' && notch.matches(':hover')) return;
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
   $('#peek').innerHTML =
     '<svg viewBox="0 0 24 24">' +
     IC[icon] +
     '</svg><div><b>' +
-    title +
+    escapeHtml(title) +
     '</b><small>' +
-    sub +
+    escapeHtml(sub) +
     '</small></div>' +
     (meter == null ? '' : '<div class="meter"><i style="width:0"></i></div>');
   if (meter != null) {
@@ -154,10 +155,10 @@ document.addEventListener('click', (e) => {
 });
 function setTab(t) {
   notch.dataset.tab = t;
-  $('.tab').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
-  $('.pane').forEach((p) => (p.hidden = p.dataset.t !== t));
+  $$('.tab').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+  $$('.pane').forEach((p) => (p.hidden = p.dataset.t !== t));
 }
-$('.tab').forEach((b) => (b.onclick = () => setTab(b.dataset.t)));
+$$('.tab').forEach((b) => (b.onclick = () => setTab(b.dataset.t)));
 
 /* music */
 const PLAY = '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
@@ -257,7 +258,7 @@ $('#cover').onchange = (e) => {
 function drawTimer() {
   $('#left').textContent = fmt(S.left);
   $('#start').textContent = S.run ? 'Pause' : 'Start';
-  $('#dur button,#dur input').forEach((el) => (el.disabled = S.run));
+  $$('#focusDurations button,#focusDurations input').forEach((el) => (el.disabled = S.run));
   const done = 1 - S.left / S.total;
   $('#pfill').style.width = done * 100 + '%';
 }
@@ -283,13 +284,13 @@ function setMins(m) {
   S.left = S.total;
   S.run = false;
   $('#dmin').value = m;
-  $('.pill').forEach((p) => p.classList.toggle('on', +p.dataset.m === m));
+  $$('.pill').forEach((p) => p.classList.toggle('on', +p.dataset.m === m));
   try {
     localStorage.setItem('island-focus', m);
   } catch (e) {}
   drawTimer();
 }
-$('.pill').forEach((p) => (p.onclick = () => setMins(p.dataset.m)));
+$$('.pill').forEach((p) => (p.onclick = () => setMins(p.dataset.m)));
 $('#dm').onclick = () => setMins(+$('#dmin').value - 5);
 $('#dp').onclick = () => setMins(+$('#dmin').value + 5);
 $('#dmin').onchange = (e) => setMins(e.target.value);
@@ -302,12 +303,7 @@ let TD = [];
 try {
   TD = JSON.parse(localStorage.getItem('island-todo')) || [];
 } catch (e) {}
-if (!TD.length)
-  TD = [
-    { t: 'Review pull request', d: 0 },
-    { t: 'Reply to messages', d: 0 },
-    { t: 'Stretch break', d: 1 }
-  ];
+TD = Array.isArray(TD) ? TD.filter((task) => task && typeof task.t === 'string') : [];
 function saveTD() {
   try {
     localStorage.setItem('island-todo', JSON.stringify(TD));
@@ -626,11 +622,15 @@ if (window.__TAURI__) {
     CC = {};
   const none = () => {
     S.playing = false;
+    setPos(0);
+    S.dur = 0;
+    actx.clearRect(0, 0, 64, 64);
     $('#ttl').textContent = 'Nothing playing';
     $('#art-n').textContent = 'Play something to see it here';
     drawMusic();
   };
   none();
+  listen('open-island', () => { over = false; open(); });
   listen('hover', (e) => {
     over = !!e.payload;
     e.payload ? open() : close();
