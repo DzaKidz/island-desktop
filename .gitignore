@@ -1,0 +1,18 @@
+# Installed dependencies
+node_modules/
+
+# Rust / Tauri build output and generated schemas
+/src-tauri/target/
+/target/
+/src-tauri/gen/schemas/
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
