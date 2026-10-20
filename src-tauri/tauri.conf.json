@@ -6,12 +6,21 @@
   "build": { "frontendDist": "../src" },
   "app": {
     "withGlobalTauri": true,
-    "windows": [{
-      "label": "main", "title": "Island", "width": 600, "height": 250,
-      "decorations": false, "transparent": true, "alwaysOnTop": true,
-      "skipTaskbar": true, "resizable": false, "shadow": false,
-      "focus": false
-    }],
+    "windows": [
+      {
+        "label": "main",
+        "title": "Island",
+        "width": 600,
+        "height": 250,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "shadow": false,
+        "focus": false
+      }
+    ],
     "security": { "csp": null }
   },
   "bundle": { "active": true, "targets": ["nsis"], "icon": ["icons/icon.ico"] }
